@@ -1,0 +1,63 @@
+appId: com.claude.base.electron
+productName: 哈基米
+# ASCII executable name — required because electron-builder renames the Electron
+# binary to productName, which fails with non-ASCII characters on macOS.
+executableName: hajimi
+copyright: Copyright © 2026
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  # Main process scripts
+  - electron/**/*
+  # Built frontend
+  - dist/**/*
+  # Package metadata (needed at runtime to resolve main entry)
+  - package.json
+
+# Use locally installed Electron instead of downloading & unpacking zip.
+# Bypasses app-builder unpack issue with Electron 42 where MacOS/Electron
+# binary is not properly extracted.
+electronDist: node_modules/electron/dist
+
+# Native modules that need to be unpacked from asar
+asarUnpack:
+  - "node_modules/mqtt/**"
+  - "node_modules/@anthropic-ai/**"
+
+mac:
+  icon: build/icon.png
+  target:
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  category: public.app-category.developer-tools
+  # No signing
+  identity: null
+
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
+linux:
+  icon: build/icon.png
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  category: Development

@@ -1,0 +1,12 @@
+[
+  {
+    "appId": "self_shop",
+    "name": "应用商店",
+    "description": "系统内置应用商店",
+    "version": "1.0.0",
+    "mode": "remote",
+    "url": "https://hajimi-ai.github.io/HAJIMI_SELF_SHOP",
+    "iconPath": "/icon.png",
+    "pinned": true
+  }
+]
