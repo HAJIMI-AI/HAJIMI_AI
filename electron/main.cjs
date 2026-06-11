@@ -11,6 +11,7 @@ const assistant = require('./assistant.cjs')
 const skills = require('./skills.cjs')
 const pluginPacks = require('./plugin-packs.cjs')
 const mcpConfigs = require('./mcp-configs.cjs')
+const mqttBroker = require('./mqttBroker.cjs')
 
 const isDev = !app.isPackaged
 const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5174'
@@ -29,6 +30,7 @@ function setupEventCenter() {
   eventCenter.registerModule(skills)
   eventCenter.registerModule(pluginPacks)
   eventCenter.registerModule(mcpConfigs)
+  eventCenter.registerModule(mqttBroker)
   eventCenter.setupIPC()
 
   eventCenter.register('app', {
@@ -306,6 +308,8 @@ app.whenReady().then(() => {
 })
 
 app.on('before-quit', () => {
+  // Stop MQTT broker before quit
+  eventCenter.invoke('mqttBroker', 'stop', []).catch(() => {})
   eventCenter.dispose()
 })
 

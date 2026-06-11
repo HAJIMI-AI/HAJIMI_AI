@@ -74,7 +74,7 @@ function readAppSettings() {
       deviceCode: typeof parsed?.deviceCode === 'string' ? parsed.deviceCode : null,
       eventMode: typeof parsed?.eventMode === 'string' ? parsed.eventMode : 'ipc',
       devMode: parsed?.devMode === true,
-      mqttByUserKey: {},
+      mqttByUserKey,
       setupByUserKey: {},
       profilesByUserKey,
       appsByUserKey,
@@ -804,6 +804,15 @@ class EventCenter {
     return { mqtt: mqttByUserKey[userKey] }
   }
 
+  getMqttConfig() {
+    const settings = readAppSettings()
+    const userKey = settings.userKey
+    if (!userKey) return null
+    const mqttByUserKey = settings.mqttByUserKey || {}
+    const cfg = mqttByUserKey[userKey]
+    return cfg && typeof cfg === 'object' ? cfg : null
+  }
+
   async testMqttConnection(input) {
     const policy = getMqttPolicy()
     if (!policy.enabled) throw new Error(policy.disabledReason)
@@ -929,6 +938,10 @@ class EventCenter {
       setUserKey: (userKey) => this.setUserKey(userKey),
       getDeviceCode: () => ({ deviceCode: getOrCreateDeviceCode() }),
       getEventMode: () => ({ eventMode: readAppSettings().eventMode || 'ipc' }),
+      setEventMode: (input) => this.setEventMode(input),
+      getMqttConfig: () => ({ mqtt: this.getMqttConfig() }),
+      setMqttConfig: (input) => this.setMqttConfig(input),
+      testMqttConnection: (input) => this.testMqttConnection(input),
       // Developer mode — when enabled, all windows open DevTools automatically
       getDevMode: () => ({ devMode: readAppSettings().devMode === true }),
       setDevMode: (input) => {

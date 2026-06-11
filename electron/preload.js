@@ -164,6 +164,27 @@ contextBridge.exposeInMainWorld('eventCenter', {
     const res = await invokeIPC('eventCenter', 'setMqttConfig', [mqtt])
     return res
   },
+
+  // MQTT Broker (local Aedes broker)
+  startMqttBroker: async () => {
+    return await invokeIPC('mqttBroker', 'start', [])
+  },
+  stopMqttBroker: async () => {
+    return await invokeIPC('mqttBroker', 'stop', [])
+  },
+  getMqttBrokerStatus: async () => {
+    return await invokeIPC('mqttBroker', 'getStatus', [])
+  },
+  getMqttBrokerConfig: async () => {
+    return await invokeIPC('mqttBroker', 'getConfig', [])
+  },
+  updateMqttBrokerConfig: async (input) => {
+    return await invokeIPC('mqttBroker', 'updateConfig', [input])
+  },
+  listMqttBrokerClients: async () => {
+    return await invokeIPC('mqttBroker', 'listClients', [])
+  },
+
   pickDirectory: async () => {
     const res = await invokeIPC('apps', 'pickDirectory', [])
     return res

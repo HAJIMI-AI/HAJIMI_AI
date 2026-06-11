@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Switch } from '@/components/ui/switch'
 import {
   ChevronDownIcon,
   SettingsIcon,
@@ -45,7 +46,8 @@ import {
   FileIcon,
   FolderOpenIcon,
   AlertCircleIcon,
-  MessageSquareIcon
+  MessageSquareIcon,
+  InfoIcon
 } from 'lucide-react'
 import { getEventCenter, getErrorMessage } from '@/lib/eventCenter'
 import type { ClientConfig, ManagedAppItem, FilePreviewResult } from '@/lib/eventCenter'
@@ -711,6 +713,15 @@ function MainView({
   const [saving, setSaving] = useState(false)
   const [envError, setEnvError] = useState<string | null>(null)
 
+  // Local MQTT Broker settings
+  const [brokerEnabled, setBrokerEnabled] = useState(true)
+  const [brokerPort, setBrokerPort] = useState('1883')
+  const [brokerUsername, setBrokerUsername] = useState('')
+  const [brokerPassword, setBrokerPassword] = useState('')
+  const [brokerStatus, setBrokerStatus] = useState<{ running: boolean; clientCount: number } | null>(null)
+  const [brokerConfigOpen, setBrokerConfigOpen] = useState(false)
+  const [brokerClientsOpen, setBrokerClientsOpen] = useState(false)
+  const [brokerClients, setBrokerClients] = useState<Array<{ id: string; address: string; connectedAt: number }>>([])
   async function loadApps(reload?: boolean) {
     const eventCenter = getEventCenter()
     if (!eventCenter) {
@@ -805,6 +816,11 @@ function MainView({
     return () => window.clearTimeout(t)
   }, [userKey])
 
+  // Load broker config on mount
+  useEffect(() => {
+    loadBrokerConfig()
+  }, [])
+
   // Full list refresh — child app calls refreshMainAppList() after installing an app
   useEffect(() => {
     if (!userKey) return
@@ -869,44 +885,95 @@ function MainView({
 
   async function saveEnvironment() {
     const eventCenter = getEventCenter()
-    if (!eventCenter) {
-      setEnvError('未检测到 Electron eventCenter')
-      return
-    }
+    if (!eventCenter) { setEnvError('未检测到 Electron eventCenter'); return }
     setSaving(true)
     setEnvError(null)
     try {
-      if (envMode === 'local') {
+      // Save broker config first
+      await persistBrokerConfig()
+
+      // Handle event mode — MQTT client remote is separate from local broker
+      if (envMode === 'mqtt') {
+        // MQTT client remote mode — pass mqtt config directly to setEventMode
+        if (!mqttUrl.trim()) throw new Error('请填写 MQTT 地址')
+        if (!testResult?.ok) throw new Error('请先测试 MQTT 连接成功')
+        await eventCenter.invoke('eventCenter', 'setEventMode', [{
+          mode: 'mqtt',
+          mqtt: { url: mqttUrl, username: mqttUsername || undefined, password: mqttPassword || undefined }
+        }])
+      } else {
         await eventCenter.invoke('eventCenter', 'setEventMode', [{ mode: 'ipc' }])
-        const next = await onRefresh()
-        setEnvMode(next.mode === 'mqtt' || next.mode === 'both' ? 'mqtt' : 'local')
-        setEnvironmentOpen(false)
-        return
       }
 
-      if (!config.mqttEnabled) {
-        throw new Error(config.mqttDisabledReason || 'MQTT 不可用')
-      }
-
-      if (!mqttUrl.trim()) {
-        throw new Error('请填写 MQTT 地址')
-      }
-
-      if (!testResult?.ok) {
-        throw new Error('请先测试 MQTT 连接成功')
-      }
-
-      await eventCenter.invoke('eventCenter', 'setMqttConfig', [
-        {
-          url: mqttUrl,
-          username: mqttUsername || undefined,
-          password: mqttPassword || undefined
-        }
-      ])
-      await eventCenter.invoke('eventCenter', 'setEventMode', [{ mode: 'mqtt' }])
       const next = await onRefresh()
       setEnvMode(next.mode === 'mqtt' || next.mode === 'both' ? 'mqtt' : 'local')
       setEnvironmentOpen(false)
+    } catch (e: unknown) {
+      setEnvError(getErrorMessage(e) || '保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function loadBrokerConfig() {
+    const eventCenter = getEventCenter()
+    if (!eventCenter) return
+    try {
+      const [cfg, status] = await Promise.all([
+        eventCenter.getMqttBrokerConfig(),
+        eventCenter.getMqttBrokerStatus()
+      ])
+      setBrokerEnabled(cfg.enabled)
+      setBrokerPort(String(cfg.port))
+      setBrokerUsername(cfg.username || '')
+      setBrokerPassword('') // never expose password from backend
+      setBrokerStatus({ running: status.running, clientCount: status.clientCount })
+    } catch {
+      // ignore — broker module may not be available
+    }
+  }
+
+  async function loadBrokerClients() {
+    const eventCenter = getEventCenter()
+    if (!eventCenter) return
+    try {
+      const res = await eventCenter.listMqttBrokerClients()
+      setBrokerClients(res.clients || [])
+    } catch {
+      // ignore
+    }
+  }
+
+  /** Persist broker config via IPC (no UI state, returns result) */
+  async function persistBrokerConfig() {
+    const ec = getEventCenter()!
+    const port = parseInt(brokerPort, 10)
+    if (isNaN(port) || port < 1024 || port > 65535) {
+      throw new Error('端口号需在 1024–65535 之间')
+    }
+    const input: Record<string, unknown> = { enabled: brokerEnabled, port }
+    if (brokerUsername.trim()) input.username = brokerUsername.trim()
+    else input.username = ''
+    if (brokerPassword) input.password = brokerPassword
+    else input.password = ''
+
+    const res = await ec.updateMqttBrokerConfig(input as Parameters<typeof ec.updateMqttBrokerConfig>[0])
+    setBrokerEnabled(res.config.enabled)
+    setBrokerPort(String(res.config.port))
+    setBrokerUsername(res.config.username || '')
+    setBrokerPassword('')
+    const s = await ec.getMqttBrokerStatus()
+    setBrokerStatus({ running: s.running, clientCount: s.clientCount })
+  }
+
+  async function saveBrokerConfig() {
+    const eventCenter = getEventCenter()
+    if (!eventCenter) { setEnvError('未检测到 Electron eventCenter'); return }
+    setSaving(true)
+    setEnvError(null)
+    try {
+      await persistBrokerConfig()
+      setBrokerConfigOpen(false)
     } catch (e: unknown) {
       setEnvError(getErrorMessage(e) || '保存失败')
     } finally {
@@ -967,7 +1034,7 @@ function MainView({
                 <DropdownMenuItem
                   onSelect={() => {
                     setSettingsMenuOpen(false)
-                    setEnvMode(config.mode === 'mqtt' || config.mode === 'both' ? 'mqtt' : 'local')
+                    setEnvMode('local')
                     setMqttUrl(config.mqtt?.url || ''); setMqttUsername(config.mqtt?.username || '')
                     setMqttPassword(config.mqtt?.password || ''); setMqttFormOpen(!config.mqtt?.url)
                     setTesting(false); setTestResult(null); setSaving(false); setEnvError(null)
@@ -1335,6 +1402,71 @@ function MainView({
               </CardContent>
             </Card>
 
+            {/* ── 本机 MQTT 服务 ── */}
+            <Card>
+              <CardContent className="flex items-center justify-between py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium">本机 MQTT 服务</span>
+                    <span className="text-xs text-muted-foreground">
+                      {brokerStatus?.running
+                        ? `运行中 · 端口 ${brokerPort}`
+                        : brokerEnabled ? '正在启动…' : '已停止'}
+                    </span>
+                  </div>
+                  {brokerStatus?.running && brokerStatus.clientCount > 0 ? (
+                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                      {brokerStatus.clientCount} 个客户端
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="MQTT 服务设置"
+                    onClick={() => {
+                      loadBrokerConfig()
+                      setEnvError(null)
+                      setBrokerConfigOpen(true)
+                    }}
+                  >
+                    <SettingsIcon className="size-3.5" />
+                  </Button>
+                  <Switch
+                    checked={brokerEnabled}
+                    onCheckedChange={async (on) => {
+                      setBrokerEnabled(on)
+                      setEnvError(null)
+                      const ec = getEventCenter()
+                      if (!ec) return
+                      try {
+                        // updateConfig will auto start/stop based on enabled flag
+                        const port = parseInt(brokerPort, 10) || 1883
+                        await ec.updateMqttBrokerConfig({ enabled: on, port })
+                        const s = await ec.getMqttBrokerStatus()
+                        setBrokerStatus({ running: s.running, clientCount: s.clientCount })
+                      } catch (e: unknown) {
+                        setBrokerEnabled(!on) // revert on failure
+                        setEnvError(getErrorMessage(e) || '操作失败')
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="查看连接的客户端"
+                    onClick={() => {
+                      loadBrokerClients()
+                      setBrokerClientsOpen(true)
+                    }}
+                  >
+                    <InfoIcon className="size-3.5" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             {envMode === 'mqtt' ? (
               <Card>
                 <Collapsible open={mqttFormOpen} onOpenChange={setMqttFormOpen}>
@@ -1428,18 +1560,128 @@ function MainView({
                 variant="outline"
                 onClick={async () => {
                   await onRefresh()
+                  await loadBrokerConfig()
                 }}
                 disabled={saving}
               >
                 刷新
               </Button>
               <Button
-                onClick={saveEnvironment}
+                onClick={async () => {
+                  // Broker save goes through saveBrokerConfig (only if changed)
+                  // or directly via the sub-dialog's own save button
+                  // Env save handles MQTT client config
+                  await saveEnvironment()
+                }}
                 disabled={saving || (envMode === 'mqtt' && !mqttUrl.trim()) || (envMode === 'mqtt' && !config.mqttEnabled)}
               >
                 {saving ? '保存中…' : '保存'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Broker Config Sub-Dialog ── */}
+      <Dialog open={brokerConfigOpen} onOpenChange={setBrokerConfigOpen}>
+        <DialogContent className="max-w-md max-h-[calc(100dvh-4rem)] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>本机 MQTT 服务设置</DialogTitle>
+            <DialogDescription>修改端口和认证信息，保存后自动重启服务</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="brokerCfgPort">TCP 端口</Label>
+              <Input
+                id="brokerCfgPort"
+                type="number"
+                value={brokerPort}
+                onChange={(e) => setBrokerPort(e.target.value)}
+                placeholder="1883"
+                min={1024}
+                max={65535}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <p className="text-xs text-muted-foreground">
+                客户端通过 <code className="text-xs bg-muted px-1 rounded">mqtt://localhost:{brokerPort || '1883'}</code> 连接
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="brokerCfgUsername">认证用户名（可选）</Label>
+              <Input
+                id="brokerCfgUsername"
+                value={brokerUsername}
+                onChange={(e) => setBrokerUsername(e.target.value)}
+                placeholder="留空则不启用认证"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="brokerCfgPassword">认证密码（可选）</Label>
+              <Input
+                id="brokerCfgPassword"
+                type="password"
+                value={brokerPassword}
+                onChange={(e) => setBrokerPassword(e.target.value)}
+                placeholder="留空则不启用认证"
+                autoComplete="off"
+              />
+            </div>
+            {envError ? (
+              <Alert variant="destructive">
+                <AlertTitle>操作失败</AlertTitle>
+                <AlertDescription>{envError}</AlertDescription>
+              </Alert>
+            ) : null}
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="outline" onClick={() => { setEnvError(null); setBrokerConfigOpen(false) }} disabled={saving}>
+                取消
+              </Button>
+              <Button onClick={saveBrokerConfig} disabled={saving}>
+                {saving ? '保存中…' : '保存并重启'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Broker Clients Sub-Dialog ── */}
+      <Dialog open={brokerClientsOpen} onOpenChange={setBrokerClientsOpen}>
+        <DialogContent className="max-w-md max-h-[calc(100dvh-4rem)] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>已连接客户端</DialogTitle>
+            <DialogDescription>
+              {brokerClients.length ? `共 ${brokerClients.length} 个客户端` : '当前无客户端连接'}
+            </DialogDescription>
+          </DialogHeader>
+          {brokerClients.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {brokerClients.map((c) => (
+                <div key={c.id} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-sm font-mono truncate">{c.id}</span>
+                    <span className="text-xs text-muted-foreground">{c.address || 'unknown'}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {new Date(c.connectedAt).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              {brokerStatus?.running ? '暂无客户端连接' : 'MQTT 服务未运行'}
+            </p>
+          )}
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => { loadBrokerClients() }}>
+              刷新
+            </Button>
+            <Button variant="outline" onClick={() => setBrokerClientsOpen(false)}>
+              关闭
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

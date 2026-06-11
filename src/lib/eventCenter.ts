@@ -98,6 +98,32 @@ export type ManagedModelItem = {
   updatedAt?: number
 }
 
+export type MqttBrokerStatus = {
+  running: boolean
+  port: number
+  wsPort: number
+  wsUrl: string | null
+  tcpUrl: string | null
+  wsEnabled: boolean
+  hasAuth: boolean
+  clientCount: number
+}
+
+export type MqttBrokerConfig = {
+  enabled: boolean
+  port: number
+  wsEnabled: boolean
+  wsPort: number
+  username: string
+  hasAuth: boolean
+}
+
+export type MqttBrokerClient = {
+  id: string
+  address: string
+  connectedAt: number
+}
+
 export type ProxyFetchInput = {
   url: string
   method?: string
@@ -241,6 +267,14 @@ export type EventCenterAPI = {
   broadcastAppEvent: (eventName: string, data?: unknown) => Promise<{ ok: true; sent: number }>
   // Notify main window to refresh its app list (called by child apps)
   refreshMainAppList: () => Promise<{ ok: true }>
+  // MQTT Broker (local Aedes broker)
+  startMqttBroker: () => Promise<MqttBrokerStatus & { ok: boolean; alreadyRunning?: boolean }>
+  stopMqttBroker: () => Promise<{ ok: boolean; alreadyStopped?: boolean }>
+  getMqttBrokerStatus: () => Promise<MqttBrokerStatus>
+  getMqttBrokerConfig: () => Promise<MqttBrokerConfig>
+  updateMqttBrokerConfig: (input: { enabled?: boolean; port?: number; wsEnabled?: boolean; wsPort?: number; username?: string; password?: string }) => Promise<{ config: MqttBrokerConfig }>
+  listMqttBrokerClients: () => Promise<{ clients: MqttBrokerClient[] }>
+
   // Proxy HTTP request through the main process (bypasses CORS / mixed-content restrictions)
   proxyFetch: (input: ProxyFetchInput) => Promise<ProxyFetchResult>
   runAgentWithModel: (input: {

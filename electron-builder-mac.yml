@@ -26,6 +26,7 @@ electronDist: node_modules/electron/dist
 asarUnpack:
   - "node_modules/mqtt/**"
   - "node_modules/@anthropic-ai/**"
+  - "node_modules/aedes/**"
 
 mac:
   icon: build/icon.png

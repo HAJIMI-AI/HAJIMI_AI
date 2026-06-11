@@ -19,7 +19,8 @@
 - **Agent 引擎** — 内置 Claude Agent SDK，支持 Vision、文件上下文、插件注入
 - **HTTP 代理** — `proxyFetch` 主进程代理，绕过 CORS / 混合内容限制
 - **MCP 支持** — MCP 配置作为独立 Claude 插件使用，也可合并到插件包
-- **MQTT** — 已开发但暂不启用，计划迁移到子应用实现，不做平台层耦合
+- **本地 MQTT 服务** — 内置 Aedes Broker，开箱即用，支持 TCP/WebSocket，可选账号密码认证
+- **MQTT 远程模式** — 已开发但暂不启用，计划迁移到子应用实现，不做平台层耦合
 - **硬件方案（开发中）** — 与子应用 MQTT 联动，通过硬件语音输入控制/远程控制电脑。硬件端采集语音 → MQTT → 子应用 → Agent 执行操作 → 反馈结果
 
 ## 📦 快速开始
@@ -36,7 +37,7 @@ npm run dev:app      # Electron
 
 > 需要 Node.js 18+ 和一个 Claude 兼容的 API Key。
 
-启动后：⚙️ → **模型管理** → 添加模型 → 导入应用即可开始使用。
+启动后：⚙️ → **模型管理** → 添加模型 → 导入应用即可开始使用。本地 MQTT 服务默认自启动，点击 ⚙️ → 环境设置 即可配置。
 
 ### 打包
 
@@ -52,6 +53,7 @@ npm run build:linux    # Linux
 electron/          # 主进程 (CommonJS)
   main.cjs         # 入口：窗口、托盘、IPC
   eventCenter.cjs  # 服务总线（应用/模型/会话/代理/文件…）
+  mqttBroker.cjs   # 本地 MQTT Broker（Aedes）
   preload.js       # contextBridge
   config/          # 配置文件
 src/               # 渲染进程 (React + TypeScript)
@@ -182,6 +184,50 @@ src/               # 渲染进程 (React + TypeScript)
 | `deleteMcpConfig(input)` | 删除 MCP 配置 |
 | `getMcpPluginPath(id)` | 获取 MCP 插件路径（可直接传入 Agent） |
 
+### MQTT Broker — 本地 MQTT 服务
+
+内置 [Aedes](https://github.com/moscajs/aedes) Broker，开箱即用，无需额外安装服务。
+
+| 方法 | 说明 |
+|------|------|
+| `getMqttBrokerStatus()` | 获取运行状态（端口、客户端数、认证状态等） |
+| `getMqttBrokerConfig()` | 获取持久化配置（端口、用户名、启用状态） |
+| `updateMqttBrokerConfig(input)` | 更新配置，自动重启服务应用新设置 |
+| `startMqttBroker()` | 手动启动服务 |
+| `stopMqttBroker()` | 手动停止服务 |
+| `listMqttBrokerClients()` | 查看当前连接的客户端列表 |
+
+**配置项：**
+
+| 配置 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `enabled` | boolean | `true` | 是否自启动 |
+| `port` | number | `1883` | TCP 端口 |
+| `wsEnabled` | boolean | `true` | 是否启用 WebSocket |
+| `wsPort` | number | `1884` | WebSocket 端口 |
+| `username` | string | `""` | 认证用户名（留空不认证） |
+| `password` | string | `""` | 认证密码（留空不认证） |
+
+**使用示例：**
+
+```ts
+// 检查服务状态
+const status = await window.eventCenter.getMqttBrokerStatus()
+// { running: true, port: 1883, tcpUrl: "mqtt://localhost:1883", clientCount: 2 }
+
+// 配置认证
+await window.eventCenter.updateMqttBrokerConfig({
+  username: 'admin',
+  password: 'mysecret'
+})
+// 服务自动重启，之后客户端需提供账号密码才能连接
+
+// 查看已连接客户端
+const { clients } = await window.eventCenter.listMqttBrokerClients()
+```
+
+上层应用通过 `mqtt://localhost:1883` (TCP) 或 `ws://localhost:1884` (WebSocket) 连接。
+
 ### Proxy — HTTP 代理
 
 | 方法 | 说明 |
@@ -208,6 +254,10 @@ src/               # 渲染进程 (React + TypeScript)
 ## 📖 快速示例
 
 ```ts
+// 本地 MQTT 服务
+const status = await window.eventCenter.getMqttBrokerStatus()
+await window.eventCenter.updateMqttBrokerConfig({ port: 1885, username: 'admin', password: 'secret' })
+
 // Agent 调用
 const result = await window.eventCenter.runAgentWithModel({
   agentName: 'claude',
