@@ -164,6 +164,27 @@ contextBridge.exposeInMainWorld('eventCenter', {
     const res = await invokeIPC('eventCenter', 'setMqttConfig', [mqtt])
     return res
   },
+
+  // MQTT Broker (local Aedes broker)
+  startMqttBroker: async () => {
+    return await invokeIPC('mqttBroker', 'start', [])
+  },
+  stopMqttBroker: async () => {
+    return await invokeIPC('mqttBroker', 'stop', [])
+  },
+  getMqttBrokerStatus: async () => {
+    return await invokeIPC('mqttBroker', 'getStatus', [])
+  },
+  getMqttBrokerConfig: async () => {
+    return await invokeIPC('mqttBroker', 'getConfig', [])
+  },
+  updateMqttBrokerConfig: async (input) => {
+    return await invokeIPC('mqttBroker', 'updateConfig', [input])
+  },
+  listMqttBrokerClients: async () => {
+    return await invokeIPC('mqttBroker', 'listClients', [])
+  },
+
   pickDirectory: async () => {
     const res = await invokeIPC('apps', 'pickDirectory', [])
     return res
@@ -308,69 +329,7 @@ contextBridge.exposeInMainWorld('eventCenter', {
 
   // Agent run with model info automatically injected
   runAgentWithModel: async (input) => {
-    const modelId = typeof input?.modelId === 'string' && input.modelId.trim() ? input.modelId.trim() : null
-    let model = null
-
-    if (modelId) {
-      model = await invokeIPC('modules', 'getModel', [modelId])
-    }
-
-    if (!model) {
-      // Fall back to selected model
-      model = await invokeIPC('modules', 'getSelectedModel', [])
-    }
-
-    if (!model) {
-      // Fall back to first model in the list
-      const models = await invokeIPC('modules', 'listModels', [])
-      model = Array.isArray(models) && models.length > 0 ? models[0] : null
-    }
-
-    if (!model) {
-      throw new Error('未配置 AI 模型，请先在主窗口设置 → 模型管理中至少添加一个模型')
-    }
-
-    // Resolve cwd: explicit > app workdir (child apps) > undefined
-    let cwd = input.cwd || undefined
-
-    if (!cwd && APP_ID_FROM_ARGS) {
-      try {
-        const wr = await invokeIPC('apps', 'getAppWorkdir', [APP_ID_FROM_ARGS])
-        if (wr?.workdir) cwd = wr.workdir
-      } catch {
-        // Ignore — app workdir resolution failure should not block agent call
-      }
-    }
-
-    const images = Array.isArray(input?.images) && input.images.length > 0 ? input.images : undefined
-    const plugins = Array.isArray(input?.plugins) && input.plugins.length > 0 ? input.plugins : undefined
-    const sdkOptions = input?.sdkOptions && typeof input.sdkOptions === 'object' ? input.sdkOptions : undefined
-
-    const agentInput = {
-      agentName: input.agentName,
-      prompt: input.prompt,
-      sessionId: input.sessionId || undefined,
-      cwd,
-      allowTools: input.allowTools === true,
-      collectMessages: input.collectMessages === true,
-      permissionMode: input.permissionMode || undefined,
-      images,
-      plugins,
-      ...(sdkOptions ? { sdkOptions } : {})
-    }
-    // Merge model info if available (don't overwrite explicit values)
-    if (model) {
-      if (model.name && !agentInput.model) {
-        agentInput.model = model.name
-      }
-      if (model.api_token && !agentInput.api_token) {
-        agentInput.api_token = model.api_token
-      }
-      if (model.api_url && !agentInput.api_url) {
-        agentInput.api_url = model.api_url
-      }
-    }
-    return await invokeIPC('agent', 'runAgent', [agentInput])
+    return await invokeIPC('agent', 'runAgentWithModel', [input])
   },
 
   // Skill management
