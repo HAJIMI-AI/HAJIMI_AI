@@ -22,9 +22,9 @@ await window.eventCenter.invoke("apps", "list", [])
 | `setLocalProfile(input)` | 创建/更新本地账户 | `{ userKey, nickname, avatar? }` | `{ userKey, nickname, avatar }` |
 | `getLocalProfile(userKey?)` | 获取本地账户 | `string?` | `{ exists, userKey, nickname, avatar }` |
 | `listProfiles()` | 列出所有本地账户 | - | `{ profiles: ProfileItem[] }` |
-| `switchProfile(input)` | 切换到已有账户 | `string \| { userKey }` | `{ userKey, nickname, avatar }` |
-| `signOut()` | 退出登录 | - | `{ ok: true }` |
-| `deleteProfile(input)` | 删除本地账户记录 | `string \| { userKey }` | `{ ok: true }` |
+| `switchProfile(input)` | 切换到已有账户（MQTT 自动重连） | `string \| { userKey }` | `{ userKey, nickname, avatar }` |
+| `signOut()` | 退出登录（断开 MQTT） | - | `{ ok: true }` |
+| `deleteProfile(input)` | 删除账户及全部数据（模型、应用、KV、MQTT 配置等） | `string \| { userKey }` | `{ ok: true }` |
 | `listApps(input?)` | 获取应用列表 | `{ reload?: boolean }` | `{ apps: ManagedAppItem[] }` |
 | `refreshApps()` | 强制刷新应用列表 | - | `{ apps: ManagedAppItem[] }` |
 | `focusOrOpenPopup(input)` | 打开应用弹窗（已打开则聚焦） | `{ appId, pathSuffix? }` | `{ ok, winId, existing }` |
@@ -33,7 +33,9 @@ await window.eventCenter.invoke("apps", "list", [])
 | `listModels()` | 列出所有模型 | - | `ManagedModelItem[]` |
 | `getSelectedModel()` | 获取默认模型 | - | `ManagedModelItem \| null` |
 | `setSelectedModel(id)` | 设置默认模型 | `string \| null` | `{ selectedModelId }` |
-| `runAgentWithModel(input)` | 调用 Agent | `{ agentName, prompt, modelId?, cwd?, allowTools?, images?, plugins?, ... }` | `AgentRunResult` |
+| `runAgentWithModel(input)` | 一键调用 Agent（自动解析模型+工作目录） | `{ agentName, prompt, modelId?, cwd?, allowTools?, images?, plugins?, ... }` | `AgentRunResult` |
+| `runAgent(input)` | 底层 Agent 调用（需自行传入模型配置） | `{ agentName, prompt, model?, api_token?, api_url?, cwd?, allowTools?, ... }` | `AgentRunResult` |
+| `listAgents()` | 列出已注册 Agent 引擎 | - | `{ name, description }[]` |
 | `readAbsoluteText(input)` | 读取任意路径文本文件 | `{ path, encoding? }` | `{ ok, path, content, size, name, ext }` |
 | `readImageAsBase64(input)` | 读取图片转 base64 | `{ path, maxWidth?, maxHeight?, quality? }` | `{ ok, path, base64, mimeType, width, height }` |
 | `pickFiles(input?)` | 打开文件选择器 | `{ filters?, multi? }` | `{ files: string[] }` |
@@ -53,6 +55,9 @@ await window.eventCenter.invoke("apps", "list", [])
 | `showItemInFolder(input)` | 系统文件管理器定位 | `{ path }` | `{ ok: true }` |
 | `openInBrowser(input)` | 浏览器打开 URL | `{ url }` | `{ ok: true }` |
 | `openExternalApp(input)` | 默认程序打开文件 | `{ path }` | `{ ok: true }` |
+| `openExternalAppByName(input)` | 按名称启动应用 | `{ name }` | `{ ok: true }` |
+| `showMain()` | 显示主窗口 | - | `{ ok: true }` |
+| `quit()` | 退出应用 | - | `{ ok: true }` |
 | `getAppId()` | 获取当前窗口 appId | - | `string \| null` |
 | `getAppWorkdir(appId?)` | 获取应用工作目录 | `string?` | `{ workdir, isDefault }` |
 | `setAppWorkdir({ appId?, directory })` | 设置应用工作目录 | `{ appId?, directory }` | `{ workdir }` |
@@ -155,15 +160,16 @@ const services = await window.eventCenter.invoke("eventCenter", "listServices", 
 - `invoke("eventCenter","getClientConfig",[])`
 - `invoke("eventCenter","getUserKey",[])` / `setUserKey`
 - `invoke("eventCenter","getEventMode",[])` / `setEventMode`
+- `invoke("eventCenter","getMqttConfig",[])` / `setMqttConfig`
+- `invoke("eventCenter","testMqttConnection",[{ url, username?, password?, timeoutMs? }])`
 - `invoke("eventCenter","getDevMode",[])` / `setDevMode`
 - `invoke("eventCenter","setLocalProfile",[input])`
 - `invoke("eventCenter","getLocalProfile",[input])`
 - `invoke("eventCenter","listProfiles",[])`
-- `invoke("eventCenter","deleteProfile",[input])`
-
-> ⚠️ **MQTT**：MQTT 模式代码已开发但暂不启用（`mqttEnabled: false`），`getMqttConfig` / `setMqttConfig` / `testMqttConnection` 存在但不可用。
->
-> 计划将 MQTT 下沉到子应用实现，配合硬件方案：**硬件语音输入 → MQTT 消息 → 子应用 → Agent 执行 → 远程控制电脑**。平台层只提供 Agent 引擎和 API，不做特定通信协议耦合。
+- `invoke("eventCenter","switchProfile",[input])` — 切换账户，MQTT 自动以新 userKey 重连
+- `invoke("eventCenter","signOut",[])` — 退出登录，断开 MQTT
+- `invoke("eventCenter","deleteProfile",[input])` — 清空账户全部数据
+- `invoke("eventCenter","listServices",[])`
 
 ### apps（应用 CRUD / 启动 / 弹窗）
 
@@ -193,7 +199,16 @@ const services = await window.eventCenter.invoke("eventCenter", "listServices", 
 
 - `invoke("agent","listAgents",[])`
 - `invoke("agent","runAgent",[{ agentName, prompt, sessionId?, model?, api_token?, api_url?, cwd?, allowTools?, collectMessages?, images?, plugins? }])`
-- 推荐使用 `runAgentWithModel(input)` 自动注入模型信息
+- `invoke("agent","runAgentWithModel",[{ agentName, prompt, modelId?, cwd?, allowTools?, collectMessages?, images?, plugins?, sdkOptions? }])` — 自动解析模型（modelId → 默认 → 首个）+ cwd（appId 工作目录），IPC/MQTT 均可
+
+### app（系统操作）
+
+- `invoke("app","showMain",[])` — 显示主窗口
+- `invoke("app","quit",[])` — 退出应用
+- `invoke("app","openInBrowser",[{ url }])` — 系统默认浏览器打开 URL
+- `invoke("app","openExternalApp",[{ path }])` — 默认程序打开文件/目录
+- `invoke("app","openExternalAppByName",[{ name }])` — 按名称启动应用
+- `invoke("app","previewFileDialog",[{ filePath, title? }])` — 独立窗口预览文件
 
 ### skills（技能）
 
@@ -246,6 +261,63 @@ const services = await window.eventCenter.invoke("eventCenter", "listServices", 
 ### proxy（HTTP 代理）
 
 - `invoke("proxy","fetch",[{ url, method?, headers?, body?, timeoutMs? }])` — 绕过 CORS
+
+### mqttBroker（本地 MQTT Broker）
+
+内置 Aedes Broker，默认 `mqtt://localhost:1883` (TCP) + `ws://localhost:1884` (WebSocket)。
+
+- `invoke("mqttBroker","start",[])` — 手动启动
+- `invoke("mqttBroker","stop",[])` — 手动停止
+- `invoke("mqttBroker","getStatus",[])` — 运行状态（端口、客户端数、认证等）
+- `invoke("mqttBroker","getConfig",[])` — Broker 配置（密码不返回）
+- `invoke("mqttBroker","updateConfig",[{ enabled, port, wsEnabled, wsPort, username, password }])` — 更新配置（自动重启）
+- `invoke("mqttBroker","listClients",[])` — 已连接客户端列表
+
+> Broker 与 userKey 无关，应用启动自动运行。切换账户不影响 Broker。
+
+### logger（运行日志）
+
+- `invoke("logger","query",[{ level?, category?, startTime?, endTime?, limit?, offset? }])` — 查询内存日志（最近 5000 条）
+- `invoke("logger","getConfig",[])` — 获取日志配置
+- `invoke("logger","updateConfig",[{ level?, format?, consoleEnabled?, keepDays?, maxFileSizeMB?, maxTotalSizeMB? }])` — 更新日志配置
+- `invoke("logger","export",[{ startTime?, endTime? }])` — 导出日志文件路径
+- `invoke("logger","clear",[])` — 清空所有日志
+
+> 日志目录 `{userData}/logs/`，按天轮转，默认保留 7 天 / 100MB。
+
+## MQTT 远程通信
+
+切换到 MQTT 模式后可通过 MQTT Broker 调用以上全部服务，无需 Electron IPC。
+
+### Topic 规则
+
+| 角色 | Topic |
+|------|-------|
+| 请求 | `{userKey}/request` |
+| 响应 | `{userKey}/{appId}/{appUserId}/response/s2c` |
+
+### 消息格式
+
+```json
+// 请求
+{ "id": "req-001", "appUserId": "user-abc", "service": "modules", "method": "listModels", "args": [{ "appId": "my-app" }] }
+
+// 成功响应
+{ "id": "req-001", "ok": true, "result": { ... } }
+
+// 失败响应
+{ "id": "req-001", "ok": false, "error": { "name": "ErrorName", "message": "..." } }
+```
+
+### 约束
+
+- `appUserId` 与 `appId`（args[0]）必填，缺一静默丢弃
+- 每个 `appId + appUserId` 享有独立响应 topic，天然客户端隔离
+- 切换账户时 MQTT 自动以新 userKey 重连，未配 MQTT 则断开
+- JSON 解析失败的消息静默丢弃
+- 建议为 Broker 配置用户名密码防未授权访问
+
+> 🧪 测试脚本与 API 示例：[HAJIMI_MQTT_TEST](https://github.com/HAJIMI-AI/HAJIMI_MQTT_TEST)
 
 ## appId 自动注入
 
