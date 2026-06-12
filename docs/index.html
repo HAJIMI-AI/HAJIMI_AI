@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>哈基米 Hajimi — AI 应用平台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Geist Variable"', '"PingFang SC"', '"Microsoft YaHei"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', '"Fira Code"', 'monospace'],
+          },
+          animation: {
+            'float': 'float 6s ease-in-out infinite',
+            'float-delayed': 'float 6s ease-in-out 2s infinite',
+            'pulse-soft': 'pulseSoft 4s ease-in-out infinite',
+            'pulse-glow': 'pulseGlow 3s ease-in-out infinite',
+            'slide-up': 'slideUp 0.6s ease-out forwards',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-20px)' },
+            },
+            pulseSoft: {
+              '0%, 100%': { opacity: '0.4' },
+              '50%': { opacity: '0.8' },
+            },
+            pulseGlow: {
+              '0%, 100%': { boxShadow: '0 0 20px rgba(139,92,246,0.3)' },
+              '50%': { boxShadow: '0 0 40px rgba(139,92,246,0.6)' },
+            },
+            slideUp: {
+              '0%': { opacity: '0', transform: 'translateY(30px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
+    .gradient-text {
+      background: linear-gradient(135deg, #a78bfa, #c084fc, #e879f9);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #7c3aed 0%, #a855f7 40%, #c084fc 100%);
+    }
+    .gradient-border {
+      position: relative;
+    }
+    .gradient-border::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, #7c3aed, #a855f7, #c084fc);
+      -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+    }
+    .card-hover {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card-hover:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 25px 50px -12px rgba(139, 92, 246, 0.2);
+      border-color: rgba(139, 92, 246, 0.3);
+    }
+    .bg-grid {
+      background-image:
+        linear-gradient(rgba(139, 92, 246, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(139, 92, 246, 0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+    .bg-dots {
+      background-image: radial-gradient(rgba(139, 92, 246, 0.10) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .glow {
+      box-shadow: 0 0 60px rgba(139, 92, 246, 0.15), 0 0 120px rgba(139, 92, 246, 0.05);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0a12; }
+    ::-webkit-scrollbar-thumb { background: #2a1a3e; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3d2a5e; }
+  </style>
+</head>
+<body class="bg-[#070710] text-gray-300 font-sans antialiased">
+
+  <!-- Navbar -->
+  <nav class="fixed top-0 left-0 right-0 z-50 bg-[#070710]/85 backdrop-blur-xl border-b border-white/[0.05]">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl gradient-bg flex items-center justify-center shadow-lg shadow-purple-500/25">
+          <span class="text-white font-bold text-sm">H</span>
+        </div>
+        <span class="font-bold text-lg text-white tracking-tight">哈基米 <span class="text-gray-500 font-normal text-sm ml-1">Hajimi</span></span>
+      </div>
+      <div class="hidden md:flex items-center gap-8 text-sm text-gray-500">
+        <a href="#features" class="hover:text-white transition-colors">核心能力</a>
+        <a href="#app-platform" class="hover:text-white transition-colors">子应用平台</a>
+        <a href="#tech" class="hover:text-white transition-colors">技术栈</a>
+        <a href="#architecture" class="hover:text-white transition-colors">架构</a>
+        <a href="https://github.com/HAJIMI-AI/hajimi" target="_blank" class="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="relative pt-36 pb-28 overflow-hidden">
+    <!-- Background effects -->
+    <div class="absolute inset-0 bg-grid"></div>
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] bg-purple-600/[0.08] rounded-full blur-[150px]"></div>
+    <div class="absolute top-40 left-1/4 w-[350px] h-[350px] bg-violet-500/[0.06] rounded-full blur-[100px] animate-float"></div>
+    <div class="absolute bottom-10 right-1/4 w-[280px] h-[280px] bg-fuchsia-500/[0.05] rounded-full blur-[90px] animate-float-delayed"></div>
+
+    <div class="relative max-w-5xl mx-auto px-6 text-center">
+      <!-- Top badge -->
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-sm text-gray-400 mb-8 backdrop-blur-sm">
+        <span class="relative flex h-2.5 w-2.5">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+        </span>
+        本地运行 · 远程控制 · 任意扩展
+      </div>
+
+      <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-tight text-white">
+        你的 AI 能力<br>
+        <span class="gradient-text">无处不在</span>
+      </h1>
+
+      <p class="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto mb-6 leading-relaxed">
+        哈基米是一个 <strong class="text-white">AI 应用平台</strong>——桌面端本地运行，
+        通过内置 MQTT Broker 实现<strong class="text-purple-400">远程控制</strong>，
+        让你的网站或应用<strong class="text-purple-400">快速拥有 AI 能力</strong>。
+      </p>
+
+      <p class="text-base text-gray-500 max-w-2xl mx-auto mb-10">
+        封装智能体调用、技能/模型管理，自由组合不同技能与模型，构建属于你自己的 AI 工作流。
+      </p>
+
+      <div class="flex flex-wrap items-center justify-center gap-4">
+        <a href="https://github.com/HAJIMI-AI/hajimi" target="_blank"
+           class="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl gradient-bg text-white font-semibold glow hover:shadow-purple-500/40 transition-all hover:scale-[1.03] shadow-lg shadow-purple-700/20">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a href="#app-platform"
+           class="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-gray-300 font-medium hover:bg-white/[0.08] hover:border-white/[0.15] transition-all">
+          了解子应用平台
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <div class="border-t border-white/[0.04]"></div>
+
+  <!-- Value Proposition - Remote AI -->
+  <section class="relative py-24">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold mb-4 text-white">不只是本地，<span class="gradient-text">更在云端之间</span></h2>
+        <p class="text-gray-500 max-w-2xl mx-auto text-lg">
+          桌面端提供完整的 AI 引擎，内置 MQTT Broker 将一切能力开放给网络——
+          任何设备、任何应用，都能通过 MQTT 远程调度 AI 能力。
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Local -->
+        <div class="relative p-8 rounded-2xl bg-white/[0.02] border border-white/[0.05] card-hover overflow-hidden group">
+          <div class="absolute inset-0 bg-gradient-to-br from-purple-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
+          <div class="relative">
+            <div class="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-5 ring-1 ring-purple-500/20">
+              <svg class="w-7 h-7 text-purple-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"/>
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-3">桌面端 · 本地引擎</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">Electron 桌面应用，内置 Claude Agent SDK，所有 AI 能力在本地运行。多模型管理、技能系统、会话持久化一应俱全。</p>
+          </div>
+        </div>
+
+        <!-- Arrow / Bridge -->
+        <div class="hidden md:flex items-center justify-center">
+          <div class="text-center">
+            <svg class="w-16 h-16 mx-auto text-purple-500/30" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 64 64">
+              <path d="M8 32h40M48 24l8 8-8 8" stroke-width="2"/>
+              <path d="M32 12v8M32 44v8" stroke-width="1" opacity="0.4"/>
+              <circle cx="32" cy="8" r="2" opacity="0.3"/>
+              <circle cx="32" cy="56" r="2" opacity="0.3"/>
+            </svg>
+            <span class="text-xs text-gray-600 mt-2 block font-mono">MQTT Bridge</span>
+          </div>
+        </div>
+
+        <!-- Remote -->
+        <div class="relative p-8 rounded-2xl bg-white/[0.02] border border-white/[0.05] card-hover overflow-hidden group">
+          <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
+          <div class="relative">
+            <div class="w-14 h-14 rounded-2xl bg-cyan-500/10 flex items-center justify-center mb-5 ring-1 ring-cyan-500/20">
+              <svg class="w-7 h-7 text-cyan-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M12 21a9 9 0 100-18 9 9 0 000 18z"/>
+                <path d="M3.6 9h16.8M3.6 15h16.8"/>
+                <path d="M12 3a14.9 14.9 0 014.5 9A14.9 14.9 0 0112 21"/>
+                <path d="M12 3a14.9 14.9 0 00-4.5 9A14.9 14.9 0 0012 21"/>
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-3">远程端 · 随时可控</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">任何支持 MQTT 的设备或应用（网页、App、硬件），均可通过 Topic 发布/订阅，远程调度 AI 能力。让你的网站瞬间拥有 AI。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sub-App Platform — Highlighted Section -->
+  <section id="app-platform" class="relative py-24 overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-b from-purple-500/[0.03] via-transparent to-purple-500/[0.03]"></div>
+    <div class="absolute inset-0 bg-dots opacity-40"></div>
+
+    <div class="relative max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-sm text-purple-400 mb-6">
+          ✦ 核心亮点
+        </div>
+        <h2 class="text-3xl md:text-5xl font-bold mb-4 text-white">
+          子应用平台 · <span class="gradient-text">快速赋予 AI 能力</span>
+        </h2>
+        <p class="text-gray-500 max-w-3xl mx-auto text-lg leading-relaxed">
+          哈基米的子应用体系，让任何 Web 应用几分钟内接入 AI——
+          只需一个配置文件，应用即刻获得完整的 AI Agent 调用、模型管理、文件操作等能力。
+          <br class="hidden md:block">
+          <span class="text-gray-600">桌面端承载引擎，MQTT 打通远程，子应用只管业务逻辑。</span>
+        </p>
+      </div>
+
+      <!-- Three import modes -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div class="gradient-border rounded-2xl p-[1px]">
+          <div class="rounded-2xl bg-[#0c0c1a] p-6 h-full card-hover">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4 ring-1 ring-purple-500/20">
+              <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-semibold text-white mb-2">本地目录导入</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">选择包含 <code class="text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded text-xs">hsq.config.json</code> 的本地目录，秒级挂载为子应用。</p>
+          </div>
+        </div>
+
+        <div class="gradient-border rounded-2xl p-[1px]">
+          <div class="rounded-2xl bg-[#0c0c1a] p-6 h-full card-hover">
+            <div class="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-4 ring-1 ring-violet-500/20">
+              <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 00-1.15 4.066c1.11 5.097 5.196 8.117 7.172 9.001.35.156.835-.15.69-.542l-1.181-3.185"/>
+                <path d="M15.75 10.5a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-semibold text-white mb-2">指纹远程加载</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">输入应用指纹，自动从 CDN 下载 zip 并解压安装。分发只需一个指纹，无需打包环境。</p>
+          </div>
+        </div>
+
+        <div class="gradient-border rounded-2xl p-[1px]">
+          <div class="rounded-2xl bg-[#0c0c1a] p-6 h-full card-hover">
+            <div class="w-10 h-10 rounded-xl bg-fuchsia-500/10 flex items-center justify-center mb-4 ring-1 ring-fuchsia-500/20">
+              <svg class="w-5 h-5 text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-semibold text-white mb-2">远程 URL 接入</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">直接加载远程 <code class="text-fuchsia-400 bg-fuchsia-500/10 px-1.5 py-0.5 rounded text-xs">hsq.config.json</code>，在线 Web 应用即时接入平台，零安装成本。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sub-app capabilities -->
+      <div class="rounded-3xl bg-white/[0.02] border border-white/[0.05] p-8 md:p-10">
+        <h4 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-6">子应用可获得的能力</h4>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <svg class="w-5 h-5 text-purple-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+            <span class="text-sm text-gray-300">Agent 调用</span>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            <span class="text-sm text-gray-300">模型管理</span>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+            <span class="text-sm text-gray-300">文件操作</span>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <svg class="w-5 h-5 text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75"/></svg>
+            <span class="text-sm text-gray-300">KV 存储</span>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <svg class="w-5 h-5 text-rose-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"/></svg>
+            <span class="text-sm text-gray-300">MQTT 通信</span>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <svg class="w-5 h-5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582"/></svg>
+            <span class="text-sm text-gray-300">代理请求</span>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <svg class="w-5 h-5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42"/></svg>
+            <span class="text-sm text-gray-300">跨应用事件</span>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <svg class="w-5 h-5 text-teal-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="text-sm text-gray-300">文件预览</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Template link -->
+      <div class="mt-10 text-center">
+        <a href="https://github.com/HAJIMI-AI/SUB_APP_TEMPLATE" target="_blank"
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 font-medium hover:bg-purple-500/20 transition-all group">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          子应用模板仓库
+          <span class="text-gray-600 text-xs group-hover:text-purple-400/60 transition-colors">SUB_APP_TEMPLATE</span>
+          <svg class="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14m0 0l-6-6m6 6l-6 6"/></svg>
+        </a>
+        <p class="text-gray-600 text-xs mt-3">基于此模板，几分钟即可创建一个拥有完整 AI 能力的子应用</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Agent + Future -->
+  <section class="relative py-24">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+        <!-- Agent Engine -->
+        <div class="relative p-8 rounded-3xl bg-white/[0.02] border border-white/[0.05] overflow-hidden group">
+          <div class="absolute inset-0 bg-gradient-to-br from-purple-500/[0.03] to-blue-500/[0.03]"></div>
+          <div class="relative">
+            <div class="flex items-center gap-3 mb-6">
+              <div class="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center shadow-lg shadow-purple-500/20">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                  <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-white">Claude Agent SDK</h3>
+            </div>
+            <p class="text-gray-400 text-sm leading-relaxed mb-6">
+              目前内置 Anthropic Claude Agent SDK，支持视觉理解、文件上下文、工具调用、会话管理与插件注入。
+              跨平台原生二进制，macOS / Windows / Linux 全支持。
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <span class="px-3 py-1 rounded-lg bg-purple-500/10 text-purple-400 text-xs border border-purple-500/20">Vision 视觉</span>
+              <span class="px-3 py-1 rounded-lg bg-blue-500/10 text-blue-400 text-xs border border-blue-500/20">Tool Use 工具</span>
+              <span class="px-3 py-1 rounded-lg bg-violet-500/10 text-violet-400 text-xs border border-violet-500/20">Plugin 插件</span>
+              <span class="px-3 py-1 rounded-lg bg-fuchsia-500/10 text-fuchsia-400 text-xs border border-fuchsia-500/20">Session 会话</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Future Expansion -->
+        <div class="relative p-8 rounded-3xl bg-white/[0.02] border border-white/[0.05] border-dashed overflow-hidden group">
+          <div class="absolute inset-0 bg-gradient-to-br from-amber-500/[0.02] to-orange-500/[0.02]"></div>
+          <div class="relative">
+            <div class="flex items-center gap-3 mb-6">
+              <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center ring-1 ring-amber-500/20">
+                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                  <path d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-white">未来将拓展更多 Agent</h3>
+            </div>
+            <p class="text-gray-400 text-sm leading-relaxed mb-6">
+              Claude 只是起点。平台架构已预留扩展接口，后续将接入更多 AI Agent 引擎——
+              OpenAI、开源模型、自定义 Agent……一次集成，全部可用。
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <span class="px-3 py-1 rounded-lg bg-amber-500/5 text-amber-400/60 text-xs border border-amber-500/10">OpenAI</span>
+              <span class="px-3 py-1 rounded-lg bg-amber-500/5 text-amber-400/60 text-xs border border-amber-500/10">Gemini</span>
+              <span class="px-3 py-1 rounded-lg bg-amber-500/5 text-amber-400/60 text-xs border border-amber-500/10">开源模型</span>
+              <span class="px-3 py-1 rounded-lg bg-amber-500/5 text-amber-400/60 text-xs border border-amber-500/10">自定义</span>
+              <span class="px-3 py-1 rounded-lg bg-amber-500/5 text-amber-400/60 text-xs border border-amber-500/10">……</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section id="features" class="relative py-24 border-t border-white/[0.04]">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold mb-4 text-white">完整的 AI 工作台</h2>
+        <p class="text-gray-500 max-w-xl mx-auto">从模型管理到远程通信，覆盖 AI 应用开发的全链条。</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="group relative p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] card-hover overflow-hidden">
+          <div class="absolute inset-0 bg-gradient-to-br from-purple-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
+          <div class="relative">
+            <div class="w-11 h-11 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4 ring-1 ring-purple-500/20">
+              <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-semibold text-white mb-2">多模型管理</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">添加任意兼容 Claude API 的模型端点，设置默认模型，每个账户数据完全隔离。一次配置，随处使用。</p>
+          </div>
+        </div>
+
+        <div class="group relative p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] card-hover overflow-hidden">
+          <div class="absolute inset-0 bg-gradient-to-br from-fuchsia-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
+          <div class="relative">
+            <div class="w-11 h-11 rounded-xl bg-fuchsia-500/10 flex items-center justify-center mb-4 ring-1 ring-fuchsia-500/20">
+              <svg class="w-5 h-5 text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-semibold text-white mb-2">技能系统</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">上传 Claude Agent Skills 作为本地目录，批量导入，元数据展示，作用域过滤。技能可自由组合。</p>
+          </div>
+        </div>
+
+        <div class="group relative p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] card-hover overflow-hidden">
+          <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
+          <div class="relative">
+            <div class="w-11 h-11 rounded-xl bg-cyan-500/10 flex items-center justify-center mb-4 ring-1 ring-cyan-500/20">
+              <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                <path d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 019 14.437V9.564z"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-semibold text-white mb-2">插件包管理</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">技能 + MCP 配置组合成命名插件包，一键注入 Agent。模块化管理，灵活组合，复用性强。</p>
+          </div>
+        </div>
+
+        <div class="group relative p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] card-hover overflow-hidden">
+          <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
+          <div class="relative">
+            <div class="w-11 h-11 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-4 ring-1 ring-emerald-500/20">
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M12 20.5c-4.694 0-8.5-3.806-8.5-8.5S7.306 3.5 12 3.5s8.5 3.806 8.5 8.5-3.806 8.5-8.5 8.5z"/>
+                <path d="M12 14.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
+                <path d="M12 20.5c-1.933 0-3.5-3.806-3.5-8.5S10.067 3.5 12 3.5"/>
+                <path d="M12 20.5c1.933 0 3.5-3.806 3.5-8.5S13.933 3.5 12 3.5"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-semibold text-white mb-2">MQTT Broker</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">内置 Aedes MQTT Broker，TCP/WebSocket 双协议，可选认证。外部应用远程调度全部平台服务。</p>
+          </div>
+        </div>
+
+        <div class="group relative p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] card-hover overflow-hidden">
+          <div class="absolute inset-0 bg-gradient-to-br from-blue-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
+          <div class="relative">
+            <div class="w-11 h-11 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4 ring-1 ring-blue-500/20">
+              <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-semibold text-white mb-2">多账户隔离</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">本地账户系统，按 userKey 完全隔离所有数据（模型、会话、技能、KV）。切换账户自动重连 MQTT。</p>
+          </div>
+        </div>
+
+        <div class="group relative p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] card-hover overflow-hidden">
+          <div class="absolute inset-0 bg-gradient-to-br from-orange-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
+          <div class="relative">
+            <div class="w-11 h-11 rounded-xl bg-orange-500/10 flex items-center justify-center mb-4 ring-1 ring-orange-500/20">
+              <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-semibold text-white mb-2">日志 & 文件服务</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">每日轮转日志系统，可查询/导出。完整文件系统操作，读写、预览、选择、finder 定位。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack -->
+  <section id="tech" class="relative py-24 border-t border-white/[0.04]">
+    <div class="absolute inset-0 bg-dots opacity-30"></div>
+    <div class="relative max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold mb-4 text-white">技术栈</h2>
+        <p class="text-gray-500 max-w-xl mx-auto">现代化的技术选型，高性能与良好的开发体验。</p>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div class="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:border-purple-500/30 hover:bg-white/[0.04] transition-all">
+          <svg class="w-7 h-7" viewBox="0 0 128 128"><path fill="#47848f" d="M49.07 67.04c.45-2.85 1.14-5.21 2.78-8.25 2.85-5.31 6.42-9.8 12.55-13.37a33.6 33.6 0 0114.4-4.46c5.64-.21 10.13 1.07 13.14 4.88 2.22 2.8 2.86 5.91 1.73 9.47-1.37 4.26-4.45 7-9.86 6.4-6.03-.67-13.33-9.74-13.89-18.72v-.18a16.39 16.39 0 012.87-9.18c4.59-6.69 12.54-8.56 20.55-7.04 11.14 2.15 18.43 9.03 21.79 19.82 1.74 5.65 1.87 11.35-.1 17.03-2.62 7.72-8.11 13.1-15.39 16.55-1.56.74-3.24 1.27-5.04 1.9 7.44 1.85 12.55 6.11 12.41 12.9-.16 8.34-7.75 14.12-19.51 14.68-11.22.52-21.81-3.34-26.18-13.62-3.79-8.89-4.26-18.29-2.65-28.39z"/><path fill="#2b2b2b" d="M47.73 29.95h-9.39l-7.66 41.12h-.06l-9.41-41.12H4.57L.57 76.47h8.74l1.77-42.62h.07l9.64 42.62h8.19l7-42.62h.07l1.76 42.62h8.68l-3.75-46.52z"/></svg>
+          <span class="text-xs font-medium text-gray-400">Electron</span>
+          <span class="text-[10px] text-gray-600">v42</span>
+        </div>
+        <div class="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:border-purple-500/30 hover:bg-white/[0.04] transition-all">
+          <svg class="w-7 h-7" viewBox="0 0 128 128"><g fill="#61DAFB"><circle cx="64" cy="64" r="11.4"/><path d="M63.97 77.73c-24.47 0-43.91-19.18-44.55-43.65C19.36 33.47 19.36 33.47 19.36 33.47c0 0 24.63 8.1 45.76 7.29 20.29-.76 43.3-7.48 43.3-7.48 0 0-.78 18.83-8.18 32.6-7.55 14.07-20.2 19.06-36.27 11.85z"/></g></svg>
+          <span class="text-xs font-medium text-gray-400">React</span>
+          <span class="text-[10px] text-gray-600">v19</span>
+        </div>
+        <div class="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:border-purple-500/30 hover:bg-white/[0.04] transition-all">
+          <svg class="w-7 h-7" viewBox="0 0 128 128"><path fill="#3178c6" d="M2 63.91v62.5h125v-125H2zm100.73-5a15.56 15.56 0 017.82 4.5 20.58 20.58 0 013 4c0 .16-5.4 3.81-8.69 5.85-.12.08-.6-.44-1.13-1.23a7.09 7.09 0 00-5.87-3.53c-3.79-.26-6.23 1.73-6.21 5a4.58 4.58 0 00.54 2.34c.83 1.73 2.38 2.76 7.24 4.86 8.95 3.85 12.78 6.39 15.16 10 2.66 4 3.25 10.46 1.45 15.24-2 5.2-6.9 8.73-13.83 9.9a38.32 38.32 0 01-9.52-.1A23 23 0 0180 109.19c-1.15-1.27-3.39-4.58-3.25-4.82a9.34 9.34 0 011.15-.73l4.6-2.64 3.59-2.08.75 1.11a16.78 16.78 0 004.74 4.54c4 2.1 9.46 1.81 12.16-.62a5.43 5.43 0 00.69-6.92c-1-1.39-3-2.56-8.59-5-6.45-2.78-9.23-4.5-11.77-7.24a16.48 16.48 0 01-3.43-6.25 25 25 0 01-.22-8c1.33-6.23 6-10.58 12.82-11.87a31.66 31.66 0 019.49.26zm-29.45 5.18v5.12H57.56v46.37H45.83V69.26H30.15v-5a49.19 49.19 0 01.14-5.16c.06-.08 10-.12 22-.1h21.67z"/></svg>
+          <span class="text-xs font-medium text-gray-400">TypeScript</span>
+          <span class="text-[10px] text-gray-600">v6.0</span>
+        </div>
+        <div class="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:border-purple-500/30 hover:bg-white/[0.04] transition-all">
+          <svg class="w-7 h-7" viewBox="0 0 128 128"><path fill="#FCC72B" d="M64.004 25.602c-17.67 0-37.62 3.69-51.102 8.859l3.426 22.52c11.25-4.695 27.07-8.277 45.879-8.277 19.504 0 40.168 3.828 49.773 10.082l4.5-22.286C106.968 32.187 87.27 25.602 64.004 25.602zM11.383 42.723C4.582 48.621 0 55.383 0 62.383c0 16.078 28.504 29.121 64.004 29.121 35.496 0 64.004-13.043 64.004-29.121 0-6.96-4.523-13.684-11.258-19.562-4.789 6.598-20.121 13.176-52.945 13.176-32.852 0-48.211-6.629-52.422-13.274z"/></svg>
+          <span class="text-xs font-medium text-gray-400">Vite</span>
+          <span class="text-[10px] text-gray-600">v8</span>
+        </div>
+        <div class="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:border-purple-500/30 hover:bg-white/[0.04] transition-all">
+          <svg class="w-7 h-7" viewBox="0 0 128 128"><path fill="#38bdf8" d="M64.5 45C52.57 45 42.9 54.67 42.9 66.6c0 5.34 1.87 10.2 5.02 14H26.2l-4.2 13.56h18.38l3.87-12.54C53.06 87.42 64.5 90.3 64.5 90.3V45z"/></svg>
+          <span class="text-xs font-medium text-gray-400">Tailwind CSS</span>
+          <span class="text-[10px] text-gray-600">v4</span>
+        </div>
+        <div class="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:border-purple-500/30 hover:bg-white/[0.04] transition-all">
+          <svg class="w-7 h-7" viewBox="0 0 128 128"><path fill="#fff" fill-opacity="0.9" d="M64 0a64 64 0 100 128A64 64 0 0064 0zm30.39 47.27L52.12 91.19a3.01 3.01 0 01-4.24 0l-14.27-14.27a3 3 0 010-4.24l4.24-4.24a3 3 0 014.24 0l7.91 7.91 38.06-38.06a3 3 0 014.24 0l4.24 4.24a3 3 0 01-.15 4.74z"/></svg>
+          <span class="text-xs font-medium text-gray-400">shadcn/ui</span>
+          <span class="text-[10px] text-gray-600">Radix</span>
+        </div>
+        <div class="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:border-purple-500/30 hover:bg-white/[0.04] transition-all">
+          <svg class="w-7 h-7" viewBox="0 0 128 128"><path fill="#e8e8ed" d="M64 0C28.65 0 0 28.65 0 64c0 28.36 18.46 52.29 44.02 60.6 3.22.6 4.4-1.4 4.4-3.1 0-1.53-.06-5.57-.09-10.93-17.9 3.89-21.66-8.63-21.66-8.63-2.93-7.43-7.15-9.4-7.15-9.4-5.84-3.99.44-3.91.44-3.91 6.46.46 9.86 6.63 9.86 6.63 5.74 9.84 15.05 7 18.72 5.35.58-4.17 2.25-7.01 4.09-8.62-14.3-1.63-29.33-7.15-29.33-31.82 0-7.03 2.51-12.77 6.63-17.27-.66-1.63-2.87-8.17.63-17.03 0 0 5.41-1.73 17.7 6.6a61.67 61.67 0 0116.12-2.17 61.78 61.78 0 0116.13 2.17c12.28-8.33 17.67-6.6 17.67-6.6 3.52 8.86 1.31 15.4.65 17.03 4.14 4.5 6.61 10.24 6.61 17.27 0 24.73-15.05 30.17-29.41 31.76 2.31 1.99 4.37 5.91 4.37 11.91 0 8.6-.08 15.55-.08 17.67 0 1.72 1.16 3.73 4.43 3.1C109.56 116.28 128 92.36 128 64 128 28.65 99.35 0 64 0z"/></svg>
+          <span class="text-xs font-medium text-gray-400">Claude SDK</span>
+          <span class="text-[10px] text-gray-600">Agent</span>
+        </div>
+        <div class="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:border-purple-500/30 hover:bg-white/[0.04] transition-all">
+          <svg class="w-7 h-7" viewBox="0 0 128 128"><path fill="#66cc33" d="M64 16.767c-26.078 0-47.233 21.156-47.233 47.234 0 26.077 21.155 47.233 47.233 47.233 26.08 0 47.233-21.156 47.233-47.233 0-26.078-21.153-47.234-47.233-47.234zm-.002 7.89c21.72 0 39.343 17.62 39.345 39.343 0 21.72-17.62 39.343-39.343 39.343-21.72 0-39.343-17.62-39.343-39.343 0-21.72 17.62-39.343 39.343-39.343zM32.243 62.918l3.955-3.955 8.902 12.457 17.586-25.305 4.404 3.56-21.767 31.434-13.08-18.191z"/></svg>
+          <span class="text-xs font-medium text-gray-400">Aedes MQTT</span>
+          <span class="text-[10px] text-gray-600">Broker</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section id="architecture" class="relative py-24 border-t border-white/[0.04]">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold mb-4 text-white">通信架构</h2>
+        <p class="text-gray-500 max-w-xl mx-auto">IPC 与 MQTT 双通道设计，本地高速通信，远程跨端调用。</p>
+      </div>
+      <div class="flex justify-center">
+        <div class="w-full max-w-4xl rounded-3xl bg-white/[0.02] border border-white/[0.06] p-8 md:p-12 overflow-x-auto">
+          <pre class="text-xs md:text-sm leading-relaxed font-mono text-gray-400">
+<span class="text-gray-600">┌──────────────────────┐      ┌────────────────────────┐      ┌──────────────────┐</span>
+<span class="text-gray-600">│                      │      │                        │      │                  │</span>
+<span class="text-purple-400 font-semibold">│   渲染进程 (React)    </span><span class="text-gray-600">│</span>  <span class="text-gray-500">IPC</span>  <span class="text-gray-600">│</span>  <span class="text-blue-400 font-semibold">  主进程 (Electron)    </span><span class="text-gray-600">│</span>  <span class="text-gray-500">MQTT</span>  <span class="text-gray-600">│</span> <span class="text-cyan-400 font-semibold"> 任何设备  </span><span class="text-gray-600">│</span>
+<span class="text-gray-600">│                      │</span>  <span class="text-gray-600">◄──►</span>  <span class="text-gray-600">│                        │</span>  <span class="text-gray-600">◄──►</span>  <span class="text-gray-600">│                  │</span>
+<span class="text-gray-600">│  • UI 交互            │</span>  <span class="text-gray-300">      </span>  <span class="text-gray-600">│  • Agent 引擎           │</span>  <span class="text-gray-300">      </span>  <span class="text-gray-600">│  • Web 应用       │</span>
+<span class="text-gray-600">│  • 模型配置           │</span>  <span class="text-gray-300">      </span>  <span class="text-gray-600">│  • 技能 / 插件          │</span>  <span class="text-gray-300">      </span>  <span class="text-gray-600">│  • 移动端         │</span>
+<span class="text-gray-600">│  • 技能管理           │</span>  <span class="text-gray-300">      </span>  <span class="text-gray-600">│  • MQTT Broker          │</span>  <span class="text-gray-300">      </span>  <span class="text-gray-600">│  • 硬件设备       │</span>
+<span class="text-gray-600">│  • 子应用启动         │</span>  <span class="text-gray-300">      </span>  <span class="text-gray-600">│  • 文件 / KV / 代理     │</span>  <span class="text-gray-300">      </span>  <span class="text-gray-600">│  • IoT 设备       │</span>
+<span class="text-gray-600">│                      │</span>  <span class="text-gray-300">      </span>  <span class="text-gray-600">│  • 多账户隔离           │</span>  <span class="text-gray-300">      </span>  <span class="text-gray-600">│                  │</span>
+<span class="text-gray-600">└──────────────────────┘      └────────────────────────┘      └──────────────────┘</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <section class="relative py-24 border-t border-white/[0.04]">
+    <div class="max-w-5xl mx-auto px-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+        <div>
+          <div class="text-4xl md:text-5xl font-bold gradient-text mb-2">80+</div>
+          <div class="text-sm text-gray-500">API 方法</div>
+        </div>
+        <div>
+          <div class="text-4xl md:text-5xl font-bold gradient-text mb-2">×3</div>
+          <div class="text-sm text-gray-500">跨平台</div>
+          <div class="text-xs text-gray-600 mt-1">macOS / Windows / Linux</div>
+        </div>
+        <div>
+          <div class="text-4xl md:text-5xl font-bold gradient-text mb-2">2</div>
+          <div class="text-sm text-gray-500">通信协议</div>
+          <div class="text-xs text-gray-600 mt-1">IPC + MQTT 双通道</div>
+        </div>
+        <div>
+          <div class="text-4xl md:text-5xl font-bold gradient-text mb-2">∞</div>
+          <div class="text-sm text-gray-500">扩展能力</div>
+          <div class="text-xs text-gray-600 mt-1">子应用 · 技能 · 插件</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA / Quick Start -->
+  <section class="relative py-24 border-t border-white/[0.04]">
+    <div class="max-w-4xl mx-auto px-6 text-center">
+      <h2 class="text-3xl md:text-4xl font-bold mb-4 text-white">现在开始</h2>
+      <p class="text-gray-500 mb-10 max-w-lg mx-auto">几行命令，即刻拥有你的 AI 工作站。让任何应用都拥有 AI 能力。</p>
+      <div class="w-full max-w-2xl mx-auto rounded-2xl bg-[#0c0c1d] border border-white/[0.06] p-6 text-left font-mono text-sm overflow-x-auto shadow-xl">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="w-3 h-3 rounded-full bg-red-500/60"></span>
+          <span class="w-3 h-3 rounded-full bg-yellow-500/60"></span>
+          <span class="w-3 h-3 rounded-full bg-green-500/60"></span>
+          <span class="text-gray-600 text-xs ml-2">terminal</span>
+        </div>
+        <div class="space-y-2">
+          <div><span class="text-purple-400 select-none">$</span> <span class="text-gray-300">git clone https://github.com/HAJIMI-AI/hajimi.git</span></div>
+          <div><span class="text-purple-400 select-none">$</span> <span class="text-gray-300">cd hajimi && npm install</span></div>
+          <div><span class="text-purple-400 select-none">$</span> <span class="text-gray-300">npm run dev</span></div>
+          <div class="pt-3 text-gray-600"># 构建生产包</div>
+          <div><span class="text-purple-400 select-none">$</span> <span class="text-gray-300">npm run build</span></div>
+        </div>
+      </div>
+
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+        <a href="https://github.com/HAJIMI-AI/SUB_APP_TEMPLATE" target="_blank"
+           class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-gray-400 hover:text-white hover:border-white/[0.15] transition-all">
+          <svg class="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          子应用模板
+        </a>
+        <a href="https://github.com/HAJIMI-AI/HAJIMI_MQTT_TEST" target="_blank"
+           class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-gray-400 hover:text-white hover:border-white/[0.15] transition-all">
+          <svg class="w-4 h-4 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          MQTT 通信 Demo
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/[0.04] py-12">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center shadow-lg shadow-purple-500/20">
+            <span class="text-white font-bold text-xs">H</span>
+          </div>
+          <span class="text-gray-500 text-sm">哈基米 Hajimi — 你的 AI 无处不在</span>
+        </div>
+        <div class="flex items-center gap-6 text-sm">
+          <a href="https://github.com/HAJIMI-AI/hajimi" target="_blank" class="text-gray-600 hover:text-gray-400 transition-colors">GitHub</a>
+          <a href="https://github.com/HAJIMI-AI/hajimi/blob/main/README.md" target="_blank" class="text-gray-600 hover:text-gray-400 transition-colors">文档</a>
+          <span class="text-gray-700">Made by code-husky</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
