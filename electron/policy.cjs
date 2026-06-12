@@ -1,6 +1,6 @@
 module.exports = {
   mqtt: {
-    enabled: false,
+    enabled: true,
     disabledReason: '内网禁用mqtt'
   },
   mqttBroker: {

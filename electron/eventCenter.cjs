@@ -558,7 +558,6 @@ class EventCenter {
 
     const client = mqtt.connect(url, connectOptions)
     const requestFullTopic = `${topicPrefix}/${requestTopic}`
-    const responseFullTopic = `${topicPrefix}/${responseTopic}`
 
     client.on('connect', () => {
       client.subscribe(requestFullTopic)
@@ -569,23 +568,13 @@ class EventCenter {
       let msg
       try {
         msg = JSON.parse(raw.toString('utf8'))
-      } catch (error) {
-        const id = randomId()
-        const deviceCode = getOrCreateDeviceCode()
-        client.publish(
-          responseFullTopic,
-          JSON.stringify({
-            id,
-            ok: false,
-            deviceCode,
-            timestamp: handledAt,
-            error: createErrorPayload(error)
-          })
-        )
+      } catch {
+        // Unparseable message — no appId, no response possible
         return
       }
 
       const id = msg?.id || randomId()
+      const appUserId = msg?.appUserId && typeof msg.appUserId === 'string' ? msg.appUserId.trim() : null
       const service = msg?.service || msg?.type
       const method = msg?.method
       const args = Array.isArray(msg?.args) ? msg.args : []
@@ -597,35 +586,49 @@ class EventCenter {
         agentMessageId: msg?.agentMessageId
       }
 
+      // Extract appId from args (same pattern as preload.js auto-inject)
+      const firstArg = args.length > 0 ? args[0] : null
+      const appId =
+        firstArg && typeof firstArg === 'object' && typeof firstArg.appId === 'string'
+          ? firstArg.appId.trim()
+          : null
+
+      // Response topic: {userKey}/{appId}/{appUserId}/response/s2c (per-client isolation)
+      const resTopic = appId && appUserId
+        ? `${topicPrefix}/${appId}/${appUserId}/response/s2c`
+        : null
+
       if (!service || !method) {
-        client.publish(
-          responseFullTopic,
-          JSON.stringify({
-            id,
-            ok: false,
-            ...meta,
+        if (resTopic) {
+          client.publish(resTopic, JSON.stringify({
+            id, ok: false, ...meta,
             error: { message: 'Invalid payload: missing service/type or method' }
-          })
-        )
+          }))
+        }
+        return
+      }
+
+      // All services MUST carry appId and appUserId
+      if (!appId || !appUserId) {
         return
       }
 
       try {
         const result = await this.invoke(service, method, args, {
           mode: 'mqtt',
-          mqtt: { topicPrefix, requestFullTopic, responseFullTopic },
+          mqtt: { topicPrefix, requestTopic: _topic, responseTopic: resTopic },
           meta
         })
-        client.publish(responseFullTopic, JSON.stringify({ id, ok: true, result, ...meta }))
+        client.publish(resTopic, JSON.stringify({ id, ok: true, result, ...meta }))
       } catch (error) {
         client.publish(
-          responseFullTopic,
+          resTopic,
           JSON.stringify({ id, ok: false, error: createErrorPayload(error), ...meta })
         )
       }
     })
 
-    this._mqtt = { client, url, username, password, topicPrefix, requestFullTopic, responseFullTopic }
+    this._mqtt = { client, url, username, password, topicPrefix, requestFullTopic }
   }
 
   dispose() {
@@ -647,13 +650,18 @@ class EventCenter {
         : null
     const userNickname = profile?.nickname || null
     const userAvatar = profile?.avatar || null
+    const mqttCfg =
+      userKey && settings.mqttByUserKey?.[userKey] && typeof settings.mqttByUserKey[userKey] === 'object'
+        ? settings.mqttByUserKey[userKey]
+        : null
     return {
+      mode: settings.eventMode || 'ipc',
       userKey,
       userNickname,
       userAvatar,
       eventMode: settings.eventMode || 'ipc',
       deviceCode: getOrCreateDeviceCode(),
-      mqtt: null,
+      mqtt: mqttCfg?.url ? { url: mqttCfg.url, username: mqttCfg.username, password: mqttCfg.password } : null,
       setupCompleted: true, // local profiles have no setup wizard
       mqttEnabled: mqttPolicy.enabled,
       mqttDisabledReason: mqttPolicy.disabledReason,
@@ -671,7 +679,8 @@ class EventCenter {
 
   setLocalProfile(input) {
     const settings = readAppSettings()
-    const userKey = typeof input?.userKey === 'string' ? input.userKey.trim() : settings.userKey
+    const providedUserKey = typeof input?.userKey === 'string' ? input.userKey.trim() : null
+    const userKey = providedUserKey || settings.userKey
     if (!userKey) throw new Error('userKey is required')
 
     const nickname = typeof input?.nickname === 'string' ? input.nickname.trim() : ''
@@ -684,6 +693,13 @@ class EventCenter {
         ? settings.profilesByUserKey
         : {})
     }
+
+    // If creating with a new userKey (not the currently-logged-in one), enforce uniqueness
+    const isCreatingNew = providedUserKey && providedUserKey !== settings.userKey
+    if (isCreatingNew && profilesByUserKey[userKey] && typeof profilesByUserKey[userKey].nickname === 'string' && profilesByUserKey[userKey].nickname.trim()) {
+      throw new Error('userKey already exists')
+    }
+
     profilesByUserKey[userKey] = {
       nickname,
       avatar: avatar || null,
@@ -756,18 +772,54 @@ class EventCenter {
       typeof input === 'string' ? input.trim() : typeof input?.userKey === 'string' ? input.userKey.trim() : ''
     if (!userKey) throw new Error('userKey is required')
 
-    const profilesByUserKey = {
-      ...(settings.profilesByUserKey && typeof settings.profilesByUserKey === 'object'
-        ? settings.profilesByUserKey
-        : {})
-    }
-    delete profilesByUserKey[userKey]
-    writeAppSettings({ ...settings, profilesByUserKey })
-
-    // If the deleted profile was the active user, sign out
+    // If the deleted profile is the active user, sign out and disconnect MQTT first
     if (settings.userKey === userKey) {
       this.setUserKey('')
+      this.dispose()
     }
+
+    // Remove profile entry
+    const profilesByUserKey = settings.profilesByUserKey && typeof settings.profilesByUserKey === 'object'
+      ? { ...settings.profilesByUserKey }
+      : {}
+    delete profilesByUserKey[userKey]
+
+    // Remove all per-user data
+    const mqttByUserKey = settings.mqttByUserKey && typeof settings.mqttByUserKey === 'object'
+      ? { ...settings.mqttByUserKey } : {}
+    delete mqttByUserKey[userKey]
+
+    const appsByUserKey = settings.appsByUserKey && typeof settings.appsByUserKey === 'object'
+      ? { ...settings.appsByUserKey } : {}
+    delete appsByUserKey[userKey]
+
+    const appsStateByUserKey = settings.appsStateByUserKey && typeof settings.appsStateByUserKey === 'object'
+      ? { ...settings.appsStateByUserKey } : {}
+    delete appsStateByUserKey[userKey]
+
+    const appStorageByUserKey = settings.appStorageByUserKey && typeof settings.appStorageByUserKey === 'object'
+      ? { ...settings.appStorageByUserKey } : {}
+    delete appStorageByUserKey[userKey]
+
+    const seededAppsByUserKey = settings.seededAppsByUserKey && typeof settings.seededAppsByUserKey === 'object'
+      ? { ...settings.seededAppsByUserKey } : {}
+    delete seededAppsByUserKey[userKey]
+
+    writeAppSettings({
+      ...settings,
+      profilesByUserKey,
+      mqttByUserKey,
+      appsByUserKey,
+      appsStateByUserKey,
+      appStorageByUserKey,
+      seededAppsByUserKey
+    })
+
+    // Remove user's model store directory
+    const userModelsDir = path.join(app.getPath('userData'), 'store', 'users', userKey)
+    try {
+      fs.rmSync(userModelsDir, { recursive: true, force: true })
+    } catch {}
 
     return { ok: true }
   }
@@ -990,6 +1042,22 @@ class EventCenter {
 
         this.setUserKey(targetUserKey)
 
+        // Reconnect MQTT with new userKey if MQTT mode is active
+        const mode = settings.eventMode
+        if (mode === 'mqtt' || mode === 'both') {
+          const mqttCfg = readAppSettings().mqttByUserKey?.[targetUserKey]
+          if (mqttCfg?.url) {
+            this.setupMQTT({
+              url: mqttCfg.url,
+              username: mqttCfg.username,
+              password: mqttCfg.password,
+              topicPrefix: targetUserKey
+            })
+          } else {
+            this.dispose()
+          }
+        }
+
         // Seed system apps (self_shop etc.) for the new userKey — same as app startup
         this.invoke('apps', 'ensureSeededApps', []).catch(() => {})
 
@@ -998,6 +1066,7 @@ class EventCenter {
       // Sign out (clear current userKey but keep profile data)
       signOut: () => {
         this.setUserKey('')
+        this.dispose()
         return { ok: true }
       }
     })

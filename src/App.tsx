@@ -722,6 +722,18 @@ function MainView({
   const [brokerConfigOpen, setBrokerConfigOpen] = useState(false)
   const [brokerClientsOpen, setBrokerClientsOpen] = useState(false)
   const [brokerClients, setBrokerClients] = useState<Array<{ id: string; address: string; connectedAt: number }>>([])
+
+  // Sync envMode + MQTT form fields when config loads
+  useEffect(() => {
+    if (!config) return
+    setEnvMode(config.mode === 'mqtt' || config.mode === 'both' ? 'mqtt' : 'local')
+    setMqttUrl(config.mqtt?.url || '')
+    setMqttUsername(config.mqtt?.username || '')
+    setMqttPassword(config.mqtt?.password || '')
+    setMqttFormOpen(!config.mqtt?.url)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config?.mode, config?.mqtt?.url])
+
   async function loadApps(reload?: boolean) {
     const eventCenter = getEventCenter()
     if (!eventCenter) {
@@ -907,6 +919,9 @@ function MainView({
 
       const next = await onRefresh()
       setEnvMode(next.mode === 'mqtt' || next.mode === 'both' ? 'mqtt' : 'local')
+      setMqttUrl(next.mqtt?.url || '')
+      setMqttUsername(next.mqtt?.username || '')
+      setMqttPassword(next.mqtt?.password || '')
       setEnvironmentOpen(false)
     } catch (e: unknown) {
       setEnvError(getErrorMessage(e) || '保存失败')
@@ -1034,7 +1049,8 @@ function MainView({
                 <DropdownMenuItem
                   onSelect={() => {
                     setSettingsMenuOpen(false)
-                    setEnvMode('local')
+                    const isMqtt = config.mode === 'mqtt' || config.mode === 'both'
+                    setEnvMode(isMqtt ? 'mqtt' : 'local')
                     setMqttUrl(config.mqtt?.url || ''); setMqttUsername(config.mqtt?.username || '')
                     setMqttPassword(config.mqtt?.password || ''); setMqttFormOpen(!config.mqtt?.url)
                     setTesting(false); setTestResult(null); setSaving(false); setEnvError(null)

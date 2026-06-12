@@ -12,6 +12,7 @@ const skills = require('./skills.cjs')
 const pluginPacks = require('./plugin-packs.cjs')
 const mcpConfigs = require('./mcp-configs.cjs')
 const mqttBroker = require('./mqttBroker.cjs')
+const logger = require('./logger/index.cjs')
 
 const isDev = !app.isPackaged
 const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5174'
@@ -31,7 +32,25 @@ function setupEventCenter() {
   eventCenter.registerModule(pluginPacks)
   eventCenter.registerModule(mcpConfigs)
   eventCenter.registerModule(mqttBroker)
+  eventCenter.registerModule(logger)
   eventCenter.setupIPC()
+
+  // Auto-restore MQTT mode if it was enabled before restart
+  const settings = require('./eventCenter.cjs').readAppSettings()
+  if (settings.eventMode === 'mqtt' || settings.eventMode === 'both') {
+    const userKey = settings.userKey
+    if (userKey) {
+      const mqttCfg = settings.mqttByUserKey?.[userKey]
+      if (mqttCfg?.url) {
+        eventCenter.setupMQTT({
+          url: mqttCfg.url,
+          username: mqttCfg.username,
+          password: mqttCfg.password,
+          topicPrefix: userKey
+        })
+      }
+    }
+  }
 
   eventCenter.register('app', {
     showMain: () => {
@@ -167,7 +186,7 @@ function createMainWindow() {
       nodeIntegration: false
     }
   })
-
+  
   if (isDev) {
     win.loadURL(devServerUrl)
   } else {

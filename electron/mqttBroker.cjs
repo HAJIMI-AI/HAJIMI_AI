@@ -110,14 +110,12 @@ function createAuthenticator(config) {
     }
   }
 
-  console.log(`[mqttBroker] Authentication enabled (user: ${username})`)
   return function (client, u, p, callback) {
     // Aedes passes password as a Buffer, convert to string for comparison
     const uStr = u ? String(u) : ''
     const pStr = p ? (Buffer.isBuffer(p) ? p.toString() : String(p)) : ''
     const ok = uStr === username && pStr === password
     if (!ok) {
-      console.log(`[mqttBroker] Auth rejected — client ${client.id}: bad credentials`)
     }
     callback(null, ok)
   }
@@ -154,6 +152,7 @@ async function start() {
     throw new Error(`Failed to create MQTT broker: ${err.message}`)
   }
 
+
   // Track client count
   broker.on('client', (client) => {
     brokerState.clientCount += 1
@@ -162,15 +161,12 @@ async function start() {
       address: client.conn?.remoteAddress || '',
       connectedAt: Date.now()
     })
-    console.log(`[mqttBroker] Client connected: ${client.id} (total: ${brokerState.clientCount})`)
   })
   broker.on('clientDisconnect', (client) => {
     brokerState.clientCount = Math.max(0, brokerState.clientCount - 1)
     brokerState.clients.delete(client.id)
-    console.log(`[mqttBroker] Client disconnected: ${client.id} (total: ${brokerState.clientCount})`)
   })
   broker.on('clientError', (client, err) => {
-    console.error(`[mqttBroker] Client error (${client?.id}):`, err.message)
   })
 
   // ── TCP server ──
@@ -184,9 +180,7 @@ async function start() {
     tcpServer.listen(config.port, () => {
       tcpServer.removeAllListeners('error')
       tcpServer.on('error', (err) => {
-        console.error(`[mqttBroker] TCP server error:`, err.message)
       })
-      console.log(`[mqttBroker] TCP server listening on port ${config.port}`)
       resolve()
     })
   })
@@ -200,7 +194,6 @@ async function start() {
     try {
       WebSocket = require('ws')
     } catch {
-      console.warn('[mqttBroker] ws package not available, WebSocket disabled')
       config.wsEnabled = false
     }
 
@@ -222,14 +215,11 @@ async function start() {
           httpServer.listen(config.wsPort, () => {
             httpServer.removeAllListeners('error')
             httpServer.on('error', (err) => {
-              console.error(`[mqttBroker] WS/HTTP server error:`, err.message)
             })
-            console.log(`[mqttBroker] WebSocket server listening on port ${config.wsPort}`)
             resolve()
           })
         })
       } catch (err) {
-        console.warn(`[mqttBroker] WebSocket start failed: ${err.message}. TCP-only mode.`)
         wsServer = null
         if (httpServer) {
           try { httpServer.close() } catch {}
@@ -268,7 +258,6 @@ function stop() {
       broker.close(() => {
         closeServers()
         resetState()
-        console.log('[mqttBroker] Broker stopped')
         resolve({ ok: true })
       })
     } else {
@@ -426,7 +415,6 @@ function register(eventCenter) {
   if (config.enabled && policy.enabled) {
     setImmediate(() => {
       start().catch((err) => {
-        console.error('[mqttBroker] Auto-start failed:', err.message)
       })
     })
   }
